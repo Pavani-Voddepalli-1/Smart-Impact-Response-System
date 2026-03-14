@@ -1,0 +1,130 @@
+{% for crash in accidents %}
+<div class="card-wrap" id="wrap-{{ loop.index }}">
+
+    <div class="closed-stamp" id="stamp-{{ loop.index }}">
+        <div class="stamp-box">
+            <span class="stamp-main">Case Closed</span>
+            <span class="stamp-time" id="stamp-time-{{ loop.index }}">—</span>
+        </div>
+    </div>
+
+    <div class="card {% if crash.speed_int <= 30 %}border-green
+                      {% elif crash.speed_int <= 60 %}border-blue
+                      {% else %}border-red{% endif %}">
+
+        <div class="card-status-bar"></div>
+
+        <div class="card-head">
+            <span class="card-id">INC-{{ "%03d" | format(loop.index) }} &nbsp;/&nbsp; {{ crash.bike_id }}</span>
+            {% if crash.speed_int <= 30 %}
+                <span class="severity-badge badge-green">Low Severity</span>
+            {% elif crash.speed_int <= 60 %}
+                <span class="severity-badge badge-blue">Moderate</span>
+            {% else %}
+                <span class="severity-badge badge-red">Critical</span>
+            {% endif %}
+        </div>
+
+        <div class="card-body">
+
+            <div class="speed-block">
+                <div class="speed-meta">Impact velocity</div>
+                <div class="speed-number {% if crash.speed_int <= 30 %}green{% elif crash.speed_int <= 60 %}blue{% else %}red{% endif %}">
+                    {{ crash.speed_of_crash }}
+                </div>
+                <div class="speed-unit">km/h at time of crash</div>
+            </div>
+
+            <div class="prog-track">
+                <div class="prog-fill" style="
+                    width: {{ [crash.speed_int, 120] | min / 120 * 100 }}%;
+                    background: {% if crash.speed_int <= 30 %}var(--safe){% elif crash.speed_int <= 60 %}var(--blue){% else %}var(--crit){% endif %};
+                "></div>
+            </div>
+
+            <table class="info-table">
+                <tr>
+                    <td class="td-key">Rider</td>
+                    <td class="td-val">{{ crash.name }}</td>
+                </tr>
+                <tr>
+                    <td class="td-key">Blood group</td>
+                    <td class="td-val"><span class="blood-val">{{ crash.owner_blood_group }}</span></td>
+                </tr>
+                <tr>
+                    <td class="td-key">Bike ID</td>
+                    <td class="td-val"><span class="bike-val">{{ crash.bike_id }}</span></td>
+                </tr>
+                <tr>
+                    <td class="td-key">Bike No.</td>
+                    <td class="td-val"><span class="bike-val">{{ crash.bike_number | default('—') }}</span></td>
+                </tr>
+            </table>
+
+            <a class="nav-btn" href="https://www.google.com/maps?q={{ crash.gps_location }}" target="_blank">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+                </svg>
+                Navigate to incident
+            </a>
+
+            <div class="close-row" onclick="toggleClosed({{ loop.index }}, '{{ crash.bike_id }}')">
+                <div class="checkbox-box" id="chk-{{ loop.index }}">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                </div>
+                <span class="close-label">Mark case as closed</span>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="empty-state">
+    <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5">
+        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <div class="empty-title">No active incidents</div>
+    <div class="empty-sub">System online — monitoring LoRa / GSM network</div>
+</div>
+{% endfor %}
+
+<script>
+function toggleClosed(idx, bikeId) {
+    const chk    = document.getElementById('chk-' + idx);
+    const stamp  = document.getElementById('stamp-' + idx);
+    const wrap   = document.getElementById('wrap-' + idx);
+    const timeEl = document.getElementById('stamp-time-' + idx);
+
+    if (chk.classList.contains('checked')) return; // already closing
+
+    chk.classList.add('checked');
+    timeEl.textContent = new Date().toLocaleTimeString('en-IN', {hour12:false});
+    stamp.classList.add('visible');
+
+    // Tell the server to permanently delete this record
+    fetch('/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bike_id: bikeId })
+    });
+
+    // Show stamp for 1.4s, then animate card out and remove from DOM
+    setTimeout(() => {
+        wrap.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+        wrap.style.opacity    = '0';
+        wrap.style.transform  = 'scale(0.96)';
+        setTimeout(() => {
+            wrap.style.transition = 'max-height 0.4s ease, margin 0.4s ease';
+            wrap.style.maxHeight  = '0';
+            wrap.style.margin     = '0';
+            wrap.style.overflow   = 'hidden';
+            setTimeout(() => {
+                wrap.remove();
+                if (typeof updateSummary === 'function') updateSummary();
+            }, 420);
+        }, 520);
+    }, 1400);
+}
+</script>
