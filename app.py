@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 
+import streamlit as st
 app = Flask(__name__)
 
 accident_data = []
